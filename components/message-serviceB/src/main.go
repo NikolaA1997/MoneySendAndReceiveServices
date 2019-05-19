@@ -1,42 +1,25 @@
 package main
 
 import (
-	"github.com/MoneySendAndReceiveServices/storage"
-	"github.com/MoneySendAndReceiveServices/util"
-	"github.com/gin-gonic/gin"
+	"encoding/json"
+	"flag"
+	"github.com/MoneySendAndReceiveServices/components/message-serviceB/src/models"
+	"github.com/MoneySendAndReceiveServices/components/message-serviceB/src/util"
 	"github.com/streadway/amqp"
 	"log"
-	"strconv"
 	"time"
 )
 
-
 func main() {
-	TOKENN := "5"
-	store := storage.NewStorage(".storage.json")
-	err := store.Set(0, time.Time{})
 
+	storageFile := flag.String("storageFile", "../storage.json", "JSON storage file")
+	storage, err := InitStorage(storageFile)
+	if err != nil {
+		util.ErrorLog(err)
+		return
+	}
 
-		router := gin.Default()
-
-		router.GET("storage", func(c *gin.Context) {
-			token := c.GetHeader("Authorization")
-			if token != TOKENN {
-				c.JSON(400, "UNAUTHORIZED")
-				return
-			}
-				money, err := store.Get()
-				if err != nil {
-					util.ErrorLog(err)
-				}
-				c.JSON(200, money)
-				return
-			})
-		err = router.Run(":8001")
-		if err != nil {
-			util.ErrorLog(err)
-		}
-
+	go setupRoutes(storage)
 
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
 	util.FailOnError(err, "Failed to connect to RabbitMQ")
@@ -72,15 +55,29 @@ func main() {
 	go func() {
 		for d := range msgs {
 			log.Printf("Received a message: %s", d.Body)
-			messageWords := util.MessageFormat(string(d.Body))
-			amount, err := strconv.ParseFloat(messageWords[0],64)
+			err := storeMessage(d.Body, storage)
 			if err != nil {
 				util.ErrorLog(err)
 			}
-			err = store.Set(amount,time.Now())
 		}
 	}()
 
 	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
 	<-forever
 }
+
+
+func storeMessage(body []byte, storage *Storage) error {
+	message := models.Message{}
+
+	if err := json.Unmarshal(body, &message); err != nil {
+		return err
+	}
+
+	if err := storage.Set(message.Amount, time.Now()); err != nil {
+		return err
+	}
+
+	return nil
+}
+

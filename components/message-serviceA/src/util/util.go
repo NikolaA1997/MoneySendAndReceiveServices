@@ -3,7 +3,6 @@ package util
 import (
 	"log"
 	"runtime"
-	"strings"
 )
 
 func ErrorLog(err error) {
@@ -22,7 +21,3 @@ func FailOnError(err error, msg string) {
 	}
 }
 
-func MessageFormat(message string) []string{
-	parts := strings.Split(strings.Trim(message, "{}")," ")
-	return parts
-}

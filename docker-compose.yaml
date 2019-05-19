@@ -1,0 +1,12 @@
+version: "3"
+services:
+  message-servicea:
+    container_name: message-serviceA
+    build: ./components/message-serviceA
+    ports:
+      - 8000:8000
+  message-serviceb:
+    container_name: message-serviceB
+    build: ./components/message-serviceB
+    ports:
+     - 8001:8001
