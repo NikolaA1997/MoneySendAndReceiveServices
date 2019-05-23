@@ -3,14 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/MoneySendAndReceiveServices/components/message-serviceA/src/models"
-	"github.com/MoneySendAndReceiveServices/components/message-serviceA/src/util"
+	"app/models"
+	"app/util"
 	"github.com/streadway/amqp"
 )
 
 func produceMessage(message models.MessagePayload) {
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	conn, err := amqp.Dial("amqp://guest:guest@rabbit:5672/")
 	util.FailOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 

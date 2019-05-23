@@ -1,12 +1,43 @@
 version: "3"
 services:
+  rabbit:
+    container_name: rabbit
+    image: rabbitmq:3-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    ports:
+      - 8080:15672
+    expose:
+      - 5672
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
   message-servicea:
     container_name: message-serviceA
     build: ./components/message-serviceA
     ports:
       - 8000:8000
+    depends_on:
+      - rabbit
+    links:
+      - rabbit
+      - message-serviceb
+    environment:
+      - HOSTNAMERABBIT=rabbit
   message-serviceb:
     container_name: message-serviceB
     build: ./components/message-serviceB
     ports:
      - 8001:8001
+    environment:
+     - HOSTNAMERABBIT=rabbit
+    restart: on-failure
+    depends_on:
+      - rabbit
+    links:
+      - rabbit
+
+

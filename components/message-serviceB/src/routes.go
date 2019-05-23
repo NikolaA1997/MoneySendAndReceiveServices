@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/MoneySendAndReceiveServices/components/message-serviceB/src/util"
+	"app/util"
 	"github.com/gin-gonic/gin"
 )
 

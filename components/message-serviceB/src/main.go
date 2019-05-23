@@ -1,14 +1,35 @@
 package main
 
 import (
+	"app/models"
+	"app/util"
 	"encoding/json"
 	"flag"
-	"github.com/MoneySendAndReceiveServices/components/message-serviceB/src/models"
-	"github.com/MoneySendAndReceiveServices/components/message-serviceB/src/util"
+	"fmt"
 	"github.com/streadway/amqp"
 	"log"
 	"time"
 )
+
+func retry(attempts int, sleep time.Duration, fn func() error) error {
+	if err := fn(); err != nil {
+		if s, ok := err.(stop); ok {
+			// Return the original error for later checking
+			return s.error
+		}
+
+		if attempts--; attempts > 0 {
+			time.Sleep(sleep)
+			return retry(attempts, 2*sleep, fn)
+		}
+		return err
+	}
+	return nil
+}
+
+type stop struct {
+	error
+}
 
 func main() {
 
@@ -21,51 +42,63 @@ func main() {
 
 	go setupRoutes(storage)
 
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
-	util.FailOnError(err, "Failed to connect to RabbitMQ")
-	defer conn.Close()
+	duration, _ := time.ParseDuration("10s")
+	retry(3, duration, func() (err error) {
+		conn, err := amqp.Dial("amqp://guest:guest@rabbit:5672/")
+		util.FailOnError(err, "Failed to connect to RabbitMQ")
 
-	ch, err := conn.Channel()
-	util.FailOnError(err, "Failed to open a channel")
-	defer ch.Close()
+		if err == nil {
 
-	q, err := ch.QueueDeclare(
-		"money", // name
-		false,   // durable
-		false,   // delete when unused
-		false,   // exclusive
-		false,   // no-wait
-		nil,     // arguments
-	)
-	util.FailOnError(err, "Failed to declare a queue")
+			ch, err := conn.Channel()
+			util.FailOnError(err, "Failed to open a channel")
+			defer ch.Close()
 
-	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
-	)
-	util.FailOnError(err, "Failed to register a consumer")
+			q, err := ch.QueueDeclare(
+				"money", // name
+				false,   // durable
+				false,   // delete when unused
+				false,   // exclusive
+				false,   // no-wait
+				nil,     // arguments
+			)
+			util.FailOnError(err, "Failed to declare a queue")
 
-	forever := make(chan bool)
+			fmt.Println("Channel and Queue established")
+			fmt.Println(q)
 
-	go func() {
-		for d := range msgs {
-			log.Printf("Received a message: %s", d.Body)
-			err := storeMessage(d.Body, storage)
-			if err != nil {
-				util.ErrorLog(err)
-			}
+			defer conn.Close()
+			defer ch.Close()
+
+			msgs, err := ch.Consume(
+				q.Name, // queue
+				"",     // consumer
+				false,   // auto-ack
+				false,  // exclusive
+				false,  // no-local
+				false,  // no-wait
+				nil,    // args
+			)
+			util.FailOnError(err, "Failed to register a consumer")
+
+			forever := make(chan bool)
+
+			go func() {
+				for d := range msgs {
+					log.Printf("Received a message: %s", d.Body)
+					err := storeMessage(d.Body, storage)
+					if err != nil {
+						util.ErrorLog(err)
+					}
+					d.Ack(false)
+				}
+			}()
+
+			log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+			<-forever
 		}
-	}()
-
-	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
-	<-forever
+		return err
+	})
 }
-
 
 func storeMessage(body []byte, storage *Storage) error {
 	message := models.Message{}
@@ -80,4 +113,3 @@ func storeMessage(body []byte, storage *Storage) error {
 
 	return nil
 }
-

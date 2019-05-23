@@ -1,9 +1,10 @@
 package main
 
 import (
+
 	"fmt"
-	"github.com/MoneySendAndReceiveServices/components/message-serviceA/src/models"
-	"github.com/MoneySendAndReceiveServices/components/message-serviceA/src/util"
+	"app/models"
+	"app/util"
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
@@ -34,20 +35,16 @@ func handleAndSendMoney(c *gin.Context) {
 func retreiveMoney(c *gin.Context) {
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "http://localhost:8001/storage", nil)
-	//	req.Header.Add("Authorization", "5")
+	req, err := http.NewRequest("GET", "http://message-serviceb:8001/storage", nil)
 	resp, err := client.Do(req)
-	if resp.StatusCode != 200 {
-		c.JSON(400, "Sorry brah")
-		return
-	}
 	if err != nil {
 		util.ErrorLog(err)
 		c.JSON(500, "Internal error")
 		return
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	c.JSON(200, fmt.Sprintf("%s", body))
+	body, _ := ioutil.ReadAll(resp.Body)
+	c.JSON(200, string(body))
 	return
 }
+

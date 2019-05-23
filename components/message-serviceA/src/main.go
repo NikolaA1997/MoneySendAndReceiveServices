@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/MoneySendAndReceiveServices/components/message-serviceA/src/util"
+	"app/util"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
